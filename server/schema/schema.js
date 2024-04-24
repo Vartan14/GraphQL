@@ -1,40 +1,40 @@
 const graphql = require("graphql");
+const { GraphQLSchema,
+    GraphQLObjectType,
+    GraphQLString,
+    GraphQLID,
+    GraphQLInt,
+    GraphQLList,
+    GraphQLNonNull} = graphql;
 
-const { GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLID, GraphQLInt, GraphQLList} = graphql;
-
+// Models
 const Post = require("../models/post");
 const Author = require("../models/author");
-
-
-// const authors = [
-//     { id: "1", name: "John Doe", age: 35 }, // 6627cf4995c3e2552dcfab21
-//     { id: "2", name: "Jane Smith", age: 40 }, // 6627cfa495c3e2552dcfab22
-//     { id: "3", name: "Michael Johnson", age: 45 } //6627cfd895c3e2552dcfab23
-// ];
 
 
 // GraphQL Schema
 const PostType = new GraphQLObjectType({
     name: "Post",
     fields: () => ({
-        id: { type: GraphQLString },
-        title: { type: GraphQLString },
-        text: { type: GraphQLString },
+        id: { type: GraphQLID },
+        title: { type: new GraphQLNonNull(GraphQLString) },
+        text: { type: new GraphQLNonNull(GraphQLString) },
         author: {
             type: AuthorType,
             resolve(parent, args) {
-                return Post.findById(parent.author.id);
+                return Author.findById(parent.authorId);
             }
         }
     }),
 });
 
+
 const AuthorType = new GraphQLObjectType({
     name: "Author",
     fields: () => ({
         id: { type: GraphQLID },
-        name: { type: GraphQLString },
-        age: { type: GraphQLInt },
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        age: { type: new GraphQLNonNull(GraphQLInt) },
         posts: {
             type: new GraphQLList(PostType),
             resolve(parent, args) {
@@ -50,7 +50,7 @@ const Query = new GraphQLObjectType({
     fields: {
         post: {
             type: PostType,
-            args: { id: { type: GraphQLString } },
+            args: { id: { type: GraphQLID } },
             resolve(parent, args) {
                 return Post.findById(args.id);
             }
@@ -77,14 +77,15 @@ const Query = new GraphQLObjectType({
     }
 });
 
+// Root Mutation
 const Mutation = new GraphQLObjectType({
     name: "Mutation",
     fields: {
         createAuthor: {
             type: AuthorType,
             args: {
-                name: { type: GraphQLString },
-                age: {type: GraphQLInt },
+                name: { type: new GraphQLNonNull(GraphQLString) },
+                age: {type: new GraphQLNonNull(GraphQLInt) },
             },
             resolve(parent, args) {
                 const author = new Author({
@@ -94,12 +95,11 @@ const Mutation = new GraphQLObjectType({
                 return author.save();
             }
         },
-
          createPost: {
             type: PostType,
             args: {
-                title: { type: GraphQLString },
-                text: { type: GraphQLString },
+                title: { type: new GraphQLNonNull(GraphQLString) },
+                text: { type: new GraphQLNonNull(GraphQLString) },
                 authorId: {type: GraphQLID },
             },
             resolve(parent, args) {
@@ -110,11 +110,57 @@ const Mutation = new GraphQLObjectType({
                 });
                 return post.save();
             }
-        }
+        },
+
+        updateAuthor: {
+            type: AuthorType,
+            args: {
+                id: {type: GraphQLID},
+                name: { type: new GraphQLNonNull(GraphQLString) },
+                age: {type: new GraphQLNonNull(GraphQLInt) },
+            },
+            resolve(parent, args) {
+               return Author.findByIdAndUpdate(
+                   args.id,
+                   { $set: { name: args.name, age: args.age } },
+                   { new: true }
+                   );
+            }
+        },
+        updatePost: {
+            type: PostType,
+            args: {
+                id: {type: GraphQLID},
+                title: { type: new GraphQLNonNull(GraphQLString) },
+                text: {type: new GraphQLNonNull(GraphQLString) },
+                authorId: {type: GraphQLID},
+            },
+            resolve(parent, args) {
+               return Post.findByIdAndUpdate(
+                   args.id,
+                   { $set: { title: args.title, text: args.text, authorId: args.authorId } },
+                   { new: true }
+                   );
+            }
+        },
+        deleteAuthor: {
+            type: AuthorType,
+            args: {id: {type: GraphQLID}},
+            resolve(parent, args) {
+                return Author.findByIdAndDelete(args.id);
+            }
+        },
+        deletePost: {
+            type: PostType,
+            args: {id: {type: GraphQLID}},
+            resolve(parent, args) {
+                return Post.findByIdAndDelete(args.id);
+            }
+        },
     }
 })
 
 module.exports = new GraphQLSchema({
     query: Query,
     mutation: Mutation,
-  });
+});
